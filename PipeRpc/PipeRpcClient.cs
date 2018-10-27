@@ -5,7 +5,6 @@ using System.IO;
 using System.IO.Pipes;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.ExceptionServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -15,13 +14,12 @@ namespace PipeRpc
 {
     public class PipeRpcClient : IDisposable
     {
-        private ServiceDescription _serviceDescription;
-        private object _service;
+        private readonly ServiceDescription _serviceDescription;
+        private readonly object _service;
         private JsonTextReader _reader;
         private JsonTextWriter _writer;
         private readonly JsonSerializer _serializer;
         private bool _started;
-        private readonly object _syncRoot = new object();
         private CancellationTokenSource _tokenSource;
         private bool _disposed;
 
@@ -82,11 +80,22 @@ namespace PipeRpc
 
         private void ProcessMessage(Message message)
         {
-            object result = message.Method.Method.Invoke(_service, message.Arguments);
+            object result;
 
+            using (message.OperationContext)
+            {
+                result = message.Method.Method.Invoke(_service, message.Arguments);
+            }
+
+            SendResult(result, message.Method.ReturnType != typeof(void));
+        }
+
+        private void SendResult(object result, bool haveResult)
+        {
             _writer.WriteStartArray();
             _writer.WriteValue("result");
-            _serializer.Serialize(_writer, result);
+            if (haveResult)
+                _serializer.Serialize(_writer, result);
             _writer.WriteEndArray();
             _writer.Flush();
         }
@@ -101,6 +110,19 @@ namespace PipeRpc
             _writer.WriteValue(exception.Message);
             _writer.WriteValue(exception.GetType().FullName);
             _writer.WriteValue(exception.StackTrace);
+            _writer.WriteEndArray();
+            _writer.Flush();
+        }
+
+        private void SendPost(string name, object[] args)
+        {
+            _writer.WriteStartArray();
+            _writer.WriteValue("post");
+            _writer.WriteValue(name);
+            foreach (var arg in args)
+            {
+                _serializer.Serialize(_writer, arg);
+            }
             _writer.WriteEndArray();
             _writer.Flush();
         }
@@ -120,7 +142,7 @@ namespace PipeRpc
                         return;
                     case "cancel":
                         JsonUtil.ReadEndArray(_reader);
-                        Cancel();
+                        _tokenSource?.Cancel();
                         break;
                     case "invoke":
                         queue.Add(ParseMessage());
@@ -128,14 +150,6 @@ namespace PipeRpc
                     default:
                         throw new PipeRpcException($"Unexpected message type '{type}'");
                 }
-            }
-        }
-
-        private void Cancel()
-        {
-            lock (_syncRoot)
-            {
-                _tokenSource?.Cancel();
             }
         }
 
@@ -148,6 +162,7 @@ namespace PipeRpc
 
             int cancellationTokenIndex = -1;
             var arguments = new object[serviceMethod.ParameterTypes.Count];
+            OperationContext operationContext = null;
 
             for (int i = 0; i < serviceMethod.ParameterTypes.Count; i++)
             {
@@ -160,31 +175,37 @@ namespace PipeRpc
                         throw new PipeRpcException("Method has multiple cancellation tokens");
                     cancellationTokenIndex = i;
                 }
+                else if (parameterType == typeof(IOperationContext))
+                {
+                    if (operationContext == null)
+                        operationContext = new OperationContext(this);
+                    arguments[i] = operationContext;
+                }
                 else
                 {
-                    JsonUtil.Read(_reader);
+                    JsonUtil.ReadForType(_reader, parameterType);
                     arguments[i] = _serializer.Deserialize(_reader, parameterType);
                 }
             }
 
             JsonUtil.ReadEndArray(_reader);
 
+            if (_tokenSource != null)
+            {
+                _tokenSource.Dispose();
+                _tokenSource = null;
+            }
+
             if (canCancel)
             {
                 if (cancellationTokenIndex == -1)
                     throw new PipeRpcException("Invocation has a cancellation token, but method does not");
 
-                var tokenSource = new CancellationTokenSource();
-
-                lock (_syncRoot)
-                {
-                    _tokenSource = tokenSource;
-                }
-
-                arguments[cancellationTokenIndex] = tokenSource.Token;
+                _tokenSource = new CancellationTokenSource();
+                arguments[cancellationTokenIndex] = _tokenSource.Token;
             }
 
-            return new Message(serviceMethod, arguments);
+            return new Message(serviceMethod, arguments, operationContext);
         }
 
         public void Dispose()
@@ -217,6 +238,11 @@ namespace PipeRpc
 
                     _reader = null;
                 }
+                if (_tokenSource != null)
+                {
+                    _tokenSource.Dispose();
+                    _tokenSource = null;
+                }
 
                 _disposed = true;
             }
@@ -226,11 +252,37 @@ namespace PipeRpc
         {
             public ServiceMethod Method { get; }
             public object[] Arguments { get; }
+            public OperationContext OperationContext { get; }
 
-            public Message(ServiceMethod method, object[] arguments)
+            public Message(ServiceMethod method, object[] arguments, OperationContext operationContext)
             {
                 Method = method;
                 Arguments = arguments;
+                OperationContext = operationContext;
+            }
+        }
+
+        private class OperationContext : IOperationContext, IDisposable
+        {
+            private readonly PipeRpcClient _client;
+            private bool _disposed;
+
+            public OperationContext(PipeRpcClient client)
+            {
+                _client = client;
+            }
+
+            public void Post(string @event, params object[] args)
+            {
+                if (_disposed)
+                    throw new ObjectDisposedException(nameof(OperationContext));
+
+                _client.SendPost(@event, args);
+            }
+
+            public void Dispose()
+            {
+                _disposed = true;
             }
         }
     }

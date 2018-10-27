@@ -51,6 +51,18 @@ namespace PipeRpc.Test
             }
         }
 
+        [Test]
+        public void PostBack()
+        {
+            using (var server = new RpcServer())
+            {
+                int? postBack = null;
+                server.Server.On<int>("PostBack", p => postBack = p);
+                server.PostBack(42);
+                Assert.AreEqual(42, postBack);
+            }
+        }
+
         private static ComplexObject CreateComplexObject()
         {
             return new ComplexObject

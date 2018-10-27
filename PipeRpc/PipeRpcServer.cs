@@ -21,6 +21,7 @@ namespace PipeRpc
         private JsonTextWriter _writer;
         private JsonTextReader _reader;
         private readonly JsonSerializer _serializer;
+        private readonly Dictionary<string, Event> _events = new Dictionary<string, Event>();
         private bool _disposed;
 
         public PipeRpcHandle Handle { get; }
@@ -59,12 +60,27 @@ namespace PipeRpc
             }
         }
 
+        public void Invoke(string method, params object[] args)
+        {
+            Invoke(method, default(CancellationToken), args);
+        }
+
+        public void Invoke(string method, CancellationToken token, params object[] args)
+        {
+            Invoke(method, null, token, args);
+        }
+
         public T Invoke<T>(string method, params object[] args)
         {
             return Invoke<T>(method, default(CancellationToken), args);
         }
 
         public T Invoke<T>(string method, CancellationToken token, params object[] args)
+        {
+            return (T)Invoke(method, typeof(T), token, args);
+        }
+
+        private object Invoke(string method, Type returnType, CancellationToken token, params object[] args)
         {
             if (_disposed)
                 throw new ObjectDisposedException(nameof(PipeRpcServer));
@@ -79,7 +95,42 @@ namespace PipeRpc
                 SendInvoke(method, token, args);
             }
 
-            return ReceiveResult<T>();
+            return ReceiveResult(returnType);
+        }
+
+        public void On<T>(string @event, Action<T> action)
+        {
+            On(@event, new[] { typeof(T) }, args => action((T)args[0]));
+        }
+
+        public void On<T1, T2>(string @event, Action<T1, T2> action)
+        {
+            On(@event, new[] { typeof(T1), typeof(T2) }, args => action((T1)args[0], (T2)args[1]));
+        }
+
+        public void On<T1, T2, T3>(string @event, Action<T1, T2, T3> action)
+        {
+            On(@event, new[] { typeof(T1), typeof(T2), typeof(T3) }, args => action((T1)args[0], (T2)args[1], (T3)args[2]));
+        }
+
+        public void On<T1, T2, T3, T4>(string @event, Action<T1, T2, T3, T4> action)
+        {
+            On(@event, new[] { typeof(T1), typeof(T2), typeof(T3), typeof(T4) }, args => action((T1)args[0], (T2)args[1], (T3)args[2], (T4)args[3]));
+        }
+
+        public void On<T1, T2, T3, T4, T5>(string @event, Action<T1, T2, T3, T4, T5> action)
+        {
+            On(@event, new[] { typeof(T1), typeof(T2), typeof(T3), typeof(T4), typeof(T5) }, args => action((T1)args[0], (T2)args[1], (T3)args[2], (T4)args[3], (T5)args[4]));
+        }
+
+        public void On<T1, T2, T3, T4, T5, T6>(string @event, Action<T1, T2, T3, T4, T5, T6> action)
+        {
+            On(@event, new[] { typeof(T1), typeof(T2), typeof(T3), typeof(T4), typeof(T5), typeof(T6) }, args => action((T1)args[0], (T2)args[1], (T3)args[2], (T4)args[3], (T5)args[4], (T6)args[5]));
+        }
+
+        private void On(string @event, Type[] types, Action<object[]> action)
+        {
+            _events.Add(@event, new Event(@event, types, action));
         }
 
         private void SendInvoke(string method, CancellationToken token, object[] args)
@@ -99,22 +150,52 @@ namespace PipeRpc
             _writer.Flush();
         }
 
-        private T ReceiveResult<T>()
+        private object ReceiveResult(Type returnType)
         {
-            JsonUtil.ReadStartArray(_reader);
-
-            string type = _reader.ReadAsString();
-            switch (type)
+            while (_reader.Read())
             {
-                case "result":
-                    return ReadResult<T>();
-                case "exception":
-                    throw ReadException();
-                case "quit":
-                    throw ReadQuit();
-                default:
-                    throw new PipeRpcException($"Unexpected message type '{type}'");
+                JsonUtil.ExpectTokenType(_reader, JsonToken.StartArray);
+
+                string type = _reader.ReadAsString();
+                switch (type)
+                {
+                    case "result":
+                        return ReadResult(returnType);
+                    case "exception":
+                        throw ReadException();
+                    case "quit":
+                        throw ReadQuit();
+                    case "post":
+                        ReadPost();
+                        break;
+                    default:
+                        throw new PipeRpcException($"Unexpected message type '{type}'");
+                }
             }
+
+            throw new PipeRpcException("Unexpected end of stream");
+        }
+
+        private void ReadPost()
+        {
+            string name = _reader.ReadAsString();
+            if (!_events.TryGetValue(name, out var @event))
+                throw new PipeRpcException($"Unexpected event '{name}'");
+
+            var parameterTypes = @event.ParameterTypes;
+            object[] arguments = new object[parameterTypes.Length];
+
+            for (int i = 0; i < parameterTypes.Length; i++)
+            {
+                var parameterType = parameterTypes[i];
+
+                JsonUtil.ReadForType(_reader, parameterType);
+                arguments[i] = _serializer.Deserialize(_reader, parameterType);
+            }
+
+            JsonUtil.ReadEndArray(_reader);
+
+            @event.Action(arguments);
         }
 
         private PipeRpcException ReadQuit()
@@ -124,10 +205,16 @@ namespace PipeRpc
             throw new PipeRpcException("RPC client went away");
         }
 
-        private T ReadResult<T>()
+        private object ReadResult(Type returnType)
         {
-            JsonUtil.Read(_reader);
-            var result = _serializer.Deserialize<T>(_reader);
+            object result = null;
+
+            if (returnType != null)
+            {
+                JsonUtil.ReadForType(_reader, returnType);
+                result = _serializer.Deserialize(_reader, returnType);
+            }
+
             JsonUtil.ReadEndArray(_reader);
 
             return result;
@@ -217,6 +304,20 @@ namespace PipeRpc
                 }
 
                 _disposed = true;
+            }
+        }
+
+        private class Event
+        {
+            public string Name { get; }
+            public Type[] ParameterTypes { get; }
+            public Action<object[]> Action { get; }
+
+            public Event(string name, Type[] parameterTypes, Action<object[]> action)
+            {
+                Name = name;
+                ParameterTypes = parameterTypes;
+                Action = action;
             }
         }
     }

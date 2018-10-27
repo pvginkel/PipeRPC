@@ -17,5 +17,10 @@ namespace PipeRpc.TestClient
         {
             return value;
         }
+
+        public void PostBack(int value, IOperationContext context)
+        {
+            context.Post("PostBack", value);
+        }
     }
 }

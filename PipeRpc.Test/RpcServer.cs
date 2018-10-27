@@ -10,28 +10,34 @@ namespace PipeRpc.Test
 {
     public class RpcServer : IDisposable
     {
-        private PipeRpcServer _server;
         private Thread _thread;
         private bool _disposed;
 
+        public PipeRpcServer Server { get; private set; }
+
         public RpcServer()
         {
-            _server = new PipeRpcServer(PipeRpcServerMode.Local);
+            Server = new PipeRpcServer(PipeRpcServerMode.Local);
 
-            _thread = new Thread(() => ThreadProc(_server.Handle));
+            _thread = new Thread(() => ThreadProc(Server.Handle));
             _thread.Start();
 
-            _server.Start();
+            Server.Start();
         }
 
         public int ReturnInt(int value)
         {
-            return _server.Invoke<int>(nameof(ReturnInt), value);
+            return Server.Invoke<int>(nameof(ReturnInt), value);
         }
 
         public ComplexObject ReturnComplexObject(ComplexObject value)
         {
-            return _server.Invoke<ComplexObject>(nameof(ReturnComplexObject), value);
+            return Server.Invoke<ComplexObject>(nameof(ReturnComplexObject), value);
+        }
+
+        public void PostBack(int value)
+        {
+            Server.Invoke("PostBack", value);
         }
 
         private void ThreadProc(PipeRpcHandle handle)
@@ -60,10 +66,10 @@ namespace PipeRpc.Test
         {
             if (!_disposed)
             {
-                if (_server != null)
+                if (Server != null)
                 {
-                    _server.Dispose();
-                    _server = null;
+                    Server.Dispose();
+                    Server = null;
                 }
                 if (_thread != null)
                 {

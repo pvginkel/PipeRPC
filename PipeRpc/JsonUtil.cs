@@ -36,5 +36,15 @@ namespace PipeRpc
             if (!reader.Read())
                 throw new PipeRpcException("Unexpected end of stream");
         }
+
+        public static void ReadForType(JsonReader reader, Type type)
+        {
+            if (type == typeof(DateTime) || type == typeof(DateTime?))
+                reader.ReadAsDateTime();
+            else if (type == typeof(DateTimeOffset) || type == typeof(DateTimeOffset?))
+                reader.ReadAsDateTimeOffset();
+            else
+                reader.Read();
+        }
     }
 }
