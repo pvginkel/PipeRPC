@@ -11,6 +11,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PipeRpc.TestClient", "PipeR
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PipeRpc.Benchmark", "PipeRpc.Benchmark\PipeRpc.Benchmark.csproj", "{FFB463B8-A1D5-4E98-A422-241A8938D3A9}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SampleServer", "SampleServer\SampleServer.csproj", "{C3A3E1ED-F64F-4959-9AD0-316AD9F306EE}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SampleClient", "SampleClient\SampleClient.csproj", "{233C413C-0FFF-4C76-9BC9-7E2C48AAD068}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -33,6 +37,14 @@ Global
 		{FFB463B8-A1D5-4E98-A422-241A8938D3A9}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{FFB463B8-A1D5-4E98-A422-241A8938D3A9}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{FFB463B8-A1D5-4E98-A422-241A8938D3A9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C3A3E1ED-F64F-4959-9AD0-316AD9F306EE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C3A3E1ED-F64F-4959-9AD0-316AD9F306EE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C3A3E1ED-F64F-4959-9AD0-316AD9F306EE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C3A3E1ED-F64F-4959-9AD0-316AD9F306EE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{233C413C-0FFF-4C76-9BC9-7E2C48AAD068}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{233C413C-0FFF-4C76-9BC9-7E2C48AAD068}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{233C413C-0FFF-4C76-9BC9-7E2C48AAD068}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{233C413C-0FFF-4C76-9BC9-7E2C48AAD068}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
