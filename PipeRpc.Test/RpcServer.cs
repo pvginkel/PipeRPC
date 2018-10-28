@@ -37,7 +37,27 @@ namespace PipeRpc.Test
 
         public void PostBack(int value)
         {
-            Server.Invoke("PostBack", value);
+            Server.Invoke(nameof(PostBack), value);
+        }
+
+        public bool PostWithCancellationToken(CancellationToken token)
+        {
+            return Server.Invoke<bool>(nameof(PostWithCancellationToken), token);
+        }
+
+        public void PostException(string message)
+        {
+            Server.Invoke(nameof(PostException), message);
+        }
+
+        public DateTime ReturnDateTime(DateTime dateTime)
+        {
+            return Server.Invoke<DateTime>(nameof(ReturnDateTime), dateTime);
+        }
+
+        public DateTimeOffset ReturnDateTimeOffset(DateTimeOffset dateTimeOffset)
+        {
+            return Server.Invoke<DateTimeOffset>(nameof(ReturnDateTimeOffset), dateTimeOffset);
         }
 
         private void ThreadProc(PipeRpcHandle handle)

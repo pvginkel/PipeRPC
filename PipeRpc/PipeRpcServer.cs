@@ -62,25 +62,15 @@ namespace PipeRpc
 
         public void Invoke(string method, params object[] args)
         {
-            Invoke(method, default(CancellationToken), args);
-        }
-
-        public void Invoke(string method, CancellationToken token, params object[] args)
-        {
-            Invoke(method, null, token, args);
+            Invoke(method, null, args);
         }
 
         public T Invoke<T>(string method, params object[] args)
         {
-            return Invoke<T>(method, default(CancellationToken), args);
+            return (T)Invoke(method, typeof(T), args);
         }
 
-        public T Invoke<T>(string method, CancellationToken token, params object[] args)
-        {
-            return (T)Invoke(method, typeof(T), token, args);
-        }
-
-        private object Invoke(string method, Type returnType, CancellationToken token, params object[] args)
+        private object Invoke(string method, Type returnType, params object[] args)
         {
             if (_disposed)
                 throw new ObjectDisposedException(nameof(PipeRpcServer));
@@ -89,13 +79,15 @@ namespace PipeRpc
 
             lock (_syncRoot)
             {
-                if (token.CanBeCanceled)
-                    RegisterCancellation(token);
-
-                SendInvoke(method, token, args);
+                SendInvoke(method, args);
             }
 
             return ReceiveResult(returnType);
+        }
+
+        public void On(string @event, Action action)
+        {
+            On(@event, new Type[0], args => action());
         }
 
         public void On<T>(string @event, Action<T> action)
@@ -133,17 +125,31 @@ namespace PipeRpc
             _events.Add(@event, new Event(@event, types, action));
         }
 
-        private void SendInvoke(string method, CancellationToken token, object[] args)
+        private void SendInvoke(string method, object[] args)
         {
+            int tokenIndex = -1;
+
+            for (int i = 0; i < args.Length; i++)
+            {
+                if (args[i] is CancellationToken token)
+                {
+                    if (tokenIndex != -1)
+                        throw new PipeRpcException("Only a single cancellation token can be provided");
+                    tokenIndex = i;
+                    RegisterCancellation(token);
+                }
+            }
+
             _writer.WriteStartArray();
 
             _writer.WriteValue("invoke");
             _writer.WriteValue(method);
-            _writer.WriteValue(token.CanBeCanceled ? 1 : 0);
+            _writer.WriteValue(tokenIndex != -1 ? 1 : 0);
 
-            foreach (object arg in args)
+            for (var i = 0; i < args.Length; i++)
             {
-                _serializer.Serialize(_writer, arg);
+                if (i != tokenIndex)
+                    _serializer.Serialize(_writer, args[i]);
             }
 
             _writer.WriteEndArray();
@@ -263,17 +269,30 @@ namespace PipeRpc
             {
                 if (_writer != null)
                 {
-                    lock (_syncRoot)
+                    try
                     {
-                        SendCommand("quit");
+                        lock (_syncRoot)
+                        {
+                            SendCommand("quit");
+                        }
+                        _writer.Close();
                     }
-
-                    _writer.Close();
+                    catch
+                    {
+                        // Ignore exceptions.
+                    }
                     _writer = null;
                 }
                 if (_reader != null)
                 {
-                    _reader.Close();
+                    try
+                    {
+                        _reader.Close();
+                    }
+                    catch
+                    {
+                        // Ignore exceptions.
+                    }
                     _reader = null;
                 }
                 if (_inStream != null)

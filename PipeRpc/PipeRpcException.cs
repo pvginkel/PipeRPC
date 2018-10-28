@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 
 namespace PipeRpc
 {
+    [Serializable]
     public class PipeRpcException : Exception
     {
         public PipeRpcException()

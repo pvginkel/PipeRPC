@@ -5,6 +5,7 @@ using System.IO;
 using System.IO.Pipes;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.ExceptionServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -54,28 +55,40 @@ namespace PipeRpc
 
             _started = true;
 
-            using (var queue = new BlockingCollection<Message>())
+            Exception exception = null;
+
+            using (var queue = new BlockingCollection<IEvent>())
             {
                 var thread = new Thread(() => ReadProc(queue)) { IsBackground = true };
                 thread.Start();
 
                 while (!queue.IsCompleted)
                 {
-                    if (!queue.TryTake(out var message, Timeout.InfiniteTimeSpan))
+                    if (!queue.TryTake(out var @event, Timeout.InfiniteTimeSpan))
                         continue;
 
-                    try
+                    if (@event is ExceptionEvent exceptionEvent)
                     {
-                        ProcessMessage(message);
+                        exception = exceptionEvent.Exception;
                     }
-                    catch (Exception ex)
+                    else
                     {
-                        SendException(ex);
+                        try
+                        {
+                            ProcessMessage((Message)@event);
+                        }
+                        catch (Exception ex)
+                        {
+                            SendException(ex);
+                        }
                     }
                 }
 
                 thread.Join();
             }
+
+            if (exception != null)
+                ExceptionDispatchInfo.Capture(exception).Throw();
         }
 
         private void ProcessMessage(Message message)
@@ -127,29 +140,37 @@ namespace PipeRpc
             _writer.Flush();
         }
 
-        private void ReadProc(BlockingCollection<Message> queue)
+        private void ReadProc(BlockingCollection<IEvent> queue)
         {
-            while (_reader.Read())
+            try
             {
-                JsonUtil.ExpectTokenType(_reader, JsonToken.StartArray);
-
-                string type = _reader.ReadAsString();
-                switch (type)
+                while (_reader.Read())
                 {
-                    case "quit":
-                        JsonUtil.ReadEndArray(_reader);
-                        queue.CompleteAdding();
-                        return;
-                    case "cancel":
-                        JsonUtil.ReadEndArray(_reader);
-                        _tokenSource?.Cancel();
-                        break;
-                    case "invoke":
-                        queue.Add(ParseMessage());
-                        break;
-                    default:
-                        throw new PipeRpcException($"Unexpected message type '{type}'");
+                    JsonUtil.ExpectTokenType(_reader, JsonToken.StartArray);
+
+                    string type = _reader.ReadAsString();
+                    switch (type)
+                    {
+                        case "quit":
+                            JsonUtil.ReadEndArray(_reader);
+                            queue.CompleteAdding();
+                            return;
+                        case "cancel":
+                            JsonUtil.ReadEndArray(_reader);
+                            _tokenSource?.Cancel();
+                            break;
+                        case "invoke":
+                            queue.Add(ParseMessage());
+                            break;
+                        default:
+                            throw new PipeRpcException($"Unexpected message type '{type}'");
+                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                queue.Add(new ExceptionEvent(ex));
+                queue.CompleteAdding();
             }
         }
 
@@ -248,7 +269,11 @@ namespace PipeRpc
             }
         }
 
-        private class Message
+        private interface IEvent
+        {
+        }
+
+        private class Message : IEvent
         {
             public ServiceMethod Method { get; }
             public object[] Arguments { get; }
@@ -259,6 +284,16 @@ namespace PipeRpc
                 Method = method;
                 Arguments = arguments;
                 OperationContext = operationContext;
+            }
+        }
+
+        private class ExceptionEvent : IEvent
+        {
+            public Exception Exception { get; }
+
+            public ExceptionEvent(Exception exception)
+            {
+                Exception = exception;
             }
         }
 
