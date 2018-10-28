@@ -27,6 +27,11 @@ namespace PipeRpc
 
         public PipeRpcHandle Handle { get; }
 
+        public PipeRpcServer()
+            : this(PipeRpcServerMode.Remote)
+        {
+        }
+
         public PipeRpcServer(PipeRpcServerMode mode)
         {
             _mode = mode;
