@@ -9,15 +9,30 @@ using PipeRpc.TestClient;
 
 namespace PipeRpc.Test
 {
-    [TestFixture]
+    [TestFixture(PipeRpcServerMode.Local)]
+    [TestFixture(PipeRpcServerMode.Remote)]
     public class TestFixture
     {
+        private readonly PipeRpcServerMode _mode;
+
+        public TestFixture(PipeRpcServerMode mode)
+        {
+            _mode = mode;
+        }
+
+        private PipeRpcServer CreateServer()
+        {
+            var server = new PipeRpcServer(_mode);
+            server.Start(new ClientStartInfo(typeof(Program).Assembly.Location, null, server.Handle.ToString()));
+            return server;
+        }
+
         [Test]
         public void ReturnInt()
         {
-            using (var server = new RpcServer())
+            using (var server = CreateServer())
             {
-                Assert.AreEqual(42, server.ReturnInt(42));
+                Assert.AreEqual(42, server.Invoke<int>("ReturnInt", 42));
             }
         }
 
@@ -28,9 +43,9 @@ namespace PipeRpc.Test
 
             ComplexObject actual;
 
-            using (var server = new RpcServer())
+            using (var server = CreateServer())
             {
-                actual = server.ReturnComplexObject(expected);
+                actual = server.Invoke<ComplexObject>("ReturnComplexObject", expected);
             }
 
             Assert.AreEqual(expected.StringList, actual.StringList);
@@ -43,11 +58,11 @@ namespace PipeRpc.Test
         {
             var expected = CreateComplexObject();
 
-            using (var server = new RpcServer())
+            using (var server = CreateServer())
             {
                 for (int i = 0; i < 1_000; i++)
                 {
-                    server.ReturnComplexObject(expected);
+                    server.Invoke<ComplexObject>("ReturnComplexObject", expected);
                 }
             }
         }
@@ -55,11 +70,11 @@ namespace PipeRpc.Test
         [Test]
         public void PostBack()
         {
-            using (var server = new RpcServer())
+            using (var server = CreateServer())
             {
                 int? postBack = null;
-                server.Server.On<int>("PostBack", p => postBack = p);
-                server.PostBack(42);
+                server.On<int>("PostBack", p => postBack = p);
+                server.Invoke("PostBack", 42);
                 Assert.AreEqual(42, postBack);
             }
         }
@@ -67,11 +82,11 @@ namespace PipeRpc.Test
         [Test]
         public void CancelRequest()
         {
-            using (var server = new RpcServer())
+            using (var server = CreateServer())
             using (var tokenSource = new CancellationTokenSource())
             {
-                server.Server.On("WaitingForCancel", () => tokenSource.Cancel());
-                bool cancelled = server.PostWithCancellationToken(tokenSource.Token);
+                server.On("WaitingForCancel", () => tokenSource.Cancel());
+                bool cancelled = server.Invoke<bool>("PostWithCancellationToken", tokenSource.Token);
                 Assert.IsTrue(cancelled);
             }
         }
@@ -79,7 +94,7 @@ namespace PipeRpc.Test
         [Test]
         public void PostException()
         {
-            using (var server = new RpcServer())
+            using (var server = CreateServer())
             {
                 // Loop a few times to ensure no internal state breaks because of
                 // the thrown exception.
@@ -87,7 +102,7 @@ namespace PipeRpc.Test
                 {
                     try
                     {
-                        server.PostException("My Exception");
+                        server.Invoke("PostException", "My Exception");
                     }
                     catch (PipeRpcInvocationException ex)
                     {
@@ -100,12 +115,12 @@ namespace PipeRpc.Test
         [Test]
         public void ReturnDateTimes()
         {
-            using (var server = new RpcServer())
+            using (var server = CreateServer())
             {
                 var expectedDateTime = DateTime.Now;
-                Assert.AreEqual(expectedDateTime, server.ReturnDateTime(expectedDateTime));
+                Assert.AreEqual(expectedDateTime, server.Invoke<DateTime>("ReturnDateTime", expectedDateTime));
                 var expectedDateTimeOffset = DateTimeOffset.Now;
-                Assert.AreEqual(expectedDateTimeOffset, server.ReturnDateTimeOffset(expectedDateTimeOffset));
+                Assert.AreEqual(expectedDateTimeOffset, server.Invoke<DateTimeOffset>("ReturnDateTimeOffset", expectedDateTimeOffset));
             }
         }
 
@@ -114,14 +129,17 @@ namespace PipeRpc.Test
         {
             try
             {
-                using (var server = new RpcServer())
+                using (var server = CreateServer())
                 {
-                    server.Server.Invoke("UnknownMethod");
+                    server.Invoke("UnknownMethod");
                 }
             }
             catch (PipeRpcException ex)
             {
-                Assert.AreEqual("Unexpected end of stream", ex.Message);
+                if (_mode == PipeRpcServerMode.Local)
+                    Assert.AreEqual("Method 'UnknownMethod' not found", ex.Message);
+                else
+                    Assert.AreEqual("Unexpected end of stream", ex.Message);
             }
         }
 

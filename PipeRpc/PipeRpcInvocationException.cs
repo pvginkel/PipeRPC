@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 
 namespace PipeRpc
 {
-    [Serializable]
     public class PipeRpcInvocationException : Exception
     {
         public string RemoteType { get; }

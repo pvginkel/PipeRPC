@@ -23,6 +23,7 @@ namespace PipeRpc
         private readonly JsonSerializer _serializer;
         private readonly Dictionary<string, Event> _events = new Dictionary<string, Event>();
         private bool _disposed;
+        private IClientHost _clientHost;
 
         public PipeRpcHandle Handle { get; }
 
@@ -46,12 +47,24 @@ namespace PipeRpc
 
         public void Start()
         {
+            Start(null);
+        }
+
+        public void Start(ClientStartInfo startInfo)
+        {
             if (_disposed)
                 throw new ObjectDisposedException(nameof(PipeRpcServer));
             if (_started)
                 throw new InvalidOperationException("RPC server has already been started");
 
             _started = true;
+
+            if (startInfo != null)
+            {
+                _clientHost = _mode == PipeRpcServerMode.Remote
+                    ? (IClientHost)new OutOfProcessHost(startInfo)
+                    : new InProcessHost(startInfo);
+            }
 
             if (_mode == PipeRpcServerMode.Remote)
             {
@@ -122,7 +135,7 @@ namespace PipeRpc
 
         private void On(string @event, Type[] types, Action<object[]> action)
         {
-            _events.Add(@event, new Event(@event, types, action));
+            _events.Add(@event, new Event(types, action));
         }
 
         private void SendInvoke(string method, object[] args)
@@ -321,6 +334,11 @@ namespace PipeRpc
                     }
                     _outStream = null;
                 }
+                if (_clientHost != null)
+                {
+                    _clientHost.Dispose();
+                    _clientHost = null;
+                }
 
                 _disposed = true;
             }
@@ -328,13 +346,11 @@ namespace PipeRpc
 
         private class Event
         {
-            public string Name { get; }
             public Type[] ParameterTypes { get; }
             public Action<object[]> Action { get; }
 
-            public Event(string name, Type[] parameterTypes, Action<object[]> action)
+            public Event(Type[] parameterTypes, Action<object[]> action)
             {
-                Name = name;
                 ParameterTypes = parameterTypes;
                 Action = action;
             }
