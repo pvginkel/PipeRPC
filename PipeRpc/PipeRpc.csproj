@@ -1,6 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net461</TargetFramework>
+    <Version>0.1.0</Version>
+    <Authors>Pieter van Ginkel</Authors>
+    <Description>Simple, fast, JSON based RPC protocol for communicating with external processes using anonymous named pipes.</Description>
+    <Copyright>Pieter van Ginkel © 2018</Copyright>
+    <PackageLicenseUrl>https://github.com/pvginkel/PipeRPC/blob/master/LICENSE</PackageLicenseUrl>
+    <PackageProjectUrl>https://github.com/pvginkel/PipeRPC</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/pvginkel/PipeRPC</RepositoryUrl>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="11.0.2" />
