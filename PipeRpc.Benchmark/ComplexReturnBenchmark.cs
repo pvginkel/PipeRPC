@@ -4,15 +4,15 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using BenchmarkDotNet.Attributes;
-using PipeRpc.Test;
 using PipeRpc.TestClient;
 
 namespace PipeRpc.Benchmark
 {
-    [SimpleJob(invocationCount: 10_000)]
-    public class Benchmark
+    // For some reason, ReturnComplexObject causes just one op to be
+    // run per benchmark.
+    [SimpleJob(warmupCount: 5, targetCount: 5, invocationCount: 10_000)]
+    public class ComplexReturnBenchmark : BenchmarkBase
     {
-        private RpcServer _server;
         private readonly ComplexObject _complexObject = new ComplexObject
         {
             StringList =
@@ -27,29 +27,10 @@ namespace PipeRpc.Benchmark
             }
         };
 
-        [GlobalSetup]
-        public void Setup()
-        {
-            _server = new RpcServer();
-        }
-
-        [GlobalCleanup]
-        public void Cleanup()
-        {
-            _server.Dispose();
-            _server = null;
-        }
-
-        [Benchmark]
-        public int ReturnInt()
-        {
-            return _server.ReturnInt(42);
-        }
-
         [Benchmark]
         public ComplexObject ReturnComplexObject()
         {
-            return _server.ReturnComplexObject(_complexObject);
+            return Server.Invoke<ComplexObject>("ReturnComplexObject", _complexObject);
         }
     }
 }
