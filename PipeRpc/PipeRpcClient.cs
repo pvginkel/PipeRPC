@@ -235,28 +235,12 @@ namespace PipeRpc
             {
                 if (_writer != null)
                 {
-                    try
-                    {
-                        _writer.Close();
-                    }
-                    catch
-                    {
-                        // Ignore exceptions.
-                    }
-
+                    Util.DisposeSilently(_writer);
                     _writer = null;
                 }
                 if (_reader != null)
                 {
-                    try
-                    {
-                        _reader.Close();
-                    }
-                    catch
-                    {
-                        // Ignore exceptions.
-                    }
-
+                    Util.DisposeSilently(_reader);
                     _reader = null;
                 }
                 if (_tokenSource != null)

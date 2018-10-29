@@ -48,5 +48,10 @@ namespace PipeRpc.TestClient
         {
             return dateTimeOffset;
         }
+
+        public void KillClient()
+        {
+            Environment.Exit(0);
+        }
     }
 }

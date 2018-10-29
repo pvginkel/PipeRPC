@@ -11,20 +11,11 @@ namespace PipeRpc.Test
 {
     [TestFixture(PipeRpcServerMode.Local)]
     [TestFixture(PipeRpcServerMode.Remote)]
-    public class TestFixture
+    public class TestFixture : FixtureBase
     {
-        private readonly PipeRpcServerMode _mode;
-
         public TestFixture(PipeRpcServerMode mode)
+            : base(mode)
         {
-            _mode = mode;
-        }
-
-        private PipeRpcServer CreateServer()
-        {
-            var server = new PipeRpcServer(_mode);
-            server.Start(new ClientStartInfo(typeof(Program).Assembly.Location, null, server.Handle.ToString()));
-            return server;
         }
 
         [Test]
@@ -107,7 +98,10 @@ namespace PipeRpc.Test
                     catch (PipeRpcInvocationException ex)
                     {
                         Assert.AreEqual("My Exception", ex.Message);
+                        continue;
                     }
+
+                    Assert.Fail();
                 }
             }
         }
@@ -136,11 +130,14 @@ namespace PipeRpc.Test
             }
             catch (PipeRpcException ex)
             {
-                if (_mode == PipeRpcServerMode.Local)
+                if (Mode == PipeRpcServerMode.Local)
                     Assert.AreEqual("Method 'UnknownMethod' not found", ex.Message);
                 else
                     Assert.AreEqual("Unexpected end of stream", ex.Message);
+                return;
             }
+
+            Assert.Fail();
         }
 
         private static ComplexObject CreateComplexObject()

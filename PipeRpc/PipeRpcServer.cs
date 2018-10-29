@@ -69,6 +69,8 @@ namespace PipeRpc
                 _clientHost = _mode == PipeRpcServerMode.Remote
                     ? (IClientHost)new OutOfProcessHost(startInfo)
                     : new InProcessHost(startInfo);
+
+                _clientHost.Exited += _clientHost_Exited;
             }
 
             if (_mode == PipeRpcServerMode.Remote)
@@ -76,6 +78,15 @@ namespace PipeRpc
                 _inStream.DisposeLocalCopyOfClientHandle();
                 _outStream.DisposeLocalCopyOfClientHandle();
             }
+
+            if (_clientHost?.HasExited == true)
+                throw new PipeRpcException("RPC client failed to start");
+        }
+
+        private void _clientHost_Exited(object sender, EventArgs e)
+        {
+            Util.DisposeSilently(_inStream);
+            Util.DisposeSilently(_outStream);
         }
 
         public void Invoke(string method, params object[] args)
@@ -287,60 +298,36 @@ namespace PipeRpc
             {
                 if (_writer != null)
                 {
-                    try
+                    Util.NoThrow(() =>
                     {
                         lock (_syncRoot)
                         {
                             SendCommand("quit");
                         }
-                        _writer.Close();
-                    }
-                    catch
-                    {
-                        // Ignore exceptions.
-                    }
+                    });
+                    Util.DisposeSilently(_writer);
                     _writer = null;
                 }
                 if (_reader != null)
                 {
-                    try
-                    {
-                        _reader.Close();
-                    }
-                    catch
-                    {
-                        // Ignore exceptions.
-                    }
+                    Util.DisposeSilently(_reader);
                     _reader = null;
                 }
                 if (_inStream != null)
                 {
-                    try
-                    {
-                        _inStream.DisposeLocalCopyOfClientHandle();
-                        _inStream.Dispose();
-                    }
-                    catch
-                    {
-                        // Ignore exceptions.
-                    }
+                    Util.NoThrow(_inStream.DisposeLocalCopyOfClientHandle);
+                    Util.DisposeSilently(_inStream);
                     _inStream = null;
                 }
                 if (_outStream != null)
                 {
-                    try
-                    {
-                        _outStream.DisposeLocalCopyOfClientHandle();
-                        _outStream.Dispose();
-                    }
-                    catch
-                    {
-                        // Ignore exceptions.
-                    }
+                    Util.NoThrow(_outStream.DisposeLocalCopyOfClientHandle);
+                    Util.DisposeSilently(_outStream);
                     _outStream = null;
                 }
                 if (_clientHost != null)
                 {
+                    _clientHost.Exited -= _clientHost_Exited;
                     _clientHost.Dispose();
                     _clientHost = null;
                 }
