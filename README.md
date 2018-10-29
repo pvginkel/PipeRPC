@@ -130,7 +130,7 @@ using (var server = new PipeRpcServer(mode))
 
 ## Performance
 
-PipeRpc is built to be fast. Below is a run of the benchmark suite part of the project:
+PipeRpc is built to be fast. Below is a run of the benchmark suite part of the project, run on an Intel i7-7700HQ:
 
 ```
               Method |   Mode |      Mean |      Error |     StdDev |
