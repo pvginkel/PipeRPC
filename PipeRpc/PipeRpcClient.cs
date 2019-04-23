@@ -153,7 +153,6 @@ namespace PipeRpc
                     {
                         case "quit":
                             JsonUtil.ReadEndArray(_reader);
-                            queue.CompleteAdding();
                             return;
                         case "cancel":
                             JsonUtil.ReadEndArray(_reader);
@@ -170,6 +169,9 @@ namespace PipeRpc
             catch (Exception ex)
             {
                 queue.Add(new ExceptionEvent(ex));
+            }
+            finally
+            {
                 queue.CompleteAdding();
             }
         }
