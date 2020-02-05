@@ -1,19 +1,24 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.28010.2016
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29728.190
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PipeRpc", "PipeRpc\PipeRpc.csproj", "{79A1A74D-5863-4885-95C0-54E6A070C980}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PipeRpc", "PipeRpc\PipeRpc.csproj", "{79A1A74D-5863-4885-95C0-54E6A070C980}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PipeRpc.Test", "PipeRpc.Test\PipeRpc.Test.csproj", "{34E0E859-AA6B-4EC6-B6F3-DD234DD1B5D5}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PipeRpc.Test", "PipeRpc.Test\PipeRpc.Test.csproj", "{34E0E859-AA6B-4EC6-B6F3-DD234DD1B5D5}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PipeRpc.TestClient", "PipeRpc.TestClient\PipeRpc.TestClient.csproj", "{5A329AFA-0D60-4716-A9D4-7111CA7389C7}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PipeRpc.TestClient", "PipeRpc.TestClient\PipeRpc.TestClient.csproj", "{5A329AFA-0D60-4716-A9D4-7111CA7389C7}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PipeRpc.Benchmark", "PipeRpc.Benchmark\PipeRpc.Benchmark.csproj", "{FFB463B8-A1D5-4E98-A422-241A8938D3A9}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PipeRpc.Benchmark", "PipeRpc.Benchmark\PipeRpc.Benchmark.csproj", "{FFB463B8-A1D5-4E98-A422-241A8938D3A9}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SampleServer", "SampleServer\SampleServer.csproj", "{C3A3E1ED-F64F-4959-9AD0-316AD9F306EE}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SampleServer", "SampleServer\SampleServer.csproj", "{C3A3E1ED-F64F-4959-9AD0-316AD9F306EE}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SampleClient", "SampleClient\SampleClient.csproj", "{233C413C-0FFF-4C76-9BC9-7E2C48AAD068}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SampleClient", "SampleClient\SampleClient.csproj", "{233C413C-0FFF-4C76-9BC9-7E2C48AAD068}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{AB24C699-4425-4F77-ABD9-A43CD7271240}"
+	ProjectSection(SolutionItems) = preProject
+		.editorconfig = .editorconfig
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
