@@ -39,6 +39,9 @@ namespace PipeRpc
                     PrivateBinPathProbe = AppDomain.CurrentDomain.SetupInformation.PrivateBinPathProbe
                 };
 
+                if (_startInfo.AppDomainConfiguration != null)
+                    setup.SetConfigurationBytes(_startInfo.AppDomainConfiguration);
+
                 var appDomain = AppDomain.CreateDomain(setup.ApplicationName, AppDomain.CurrentDomain.Evidence, setup);
 
                 try

@@ -12,6 +12,7 @@ namespace PipeRpc
         public string FileName { get; }
         public string WorkingDirectory { get; }
         public IList<string> Arguments { get; }
+        public byte[] AppDomainConfiguration { get; set; }
 
         public ClientStartInfo(string fileName, string workingDirectory, params string[] arguments)
         {
