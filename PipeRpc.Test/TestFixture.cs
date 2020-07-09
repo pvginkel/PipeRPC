@@ -140,6 +140,40 @@ namespace PipeRpc.Test
             Assert.Fail();
         }
 
+        [Test]
+        public void InvokeBack()
+        {
+            using (var server = CreateServer())
+            {
+                server.On<int, int, int>("Multiply", (a, b) => a * b);
+                int result = server.Invoke<int>("InvokeBackWithInt", 3, 4);
+                Assert.AreEqual((3 + 1) * (4 + 2), result);
+            }
+        }
+
+        [Test]
+        public void InvokeBackThrowsException()
+        {
+            using (var server = CreateServer())
+            {
+                server.On<int, int, int>("Multiply", (a, b) => throw new NotSupportedException("Not supported test"));
+                Exception exception = null;
+
+                try
+                {
+                    server.Invoke<int>("InvokeBackWithInt", 3, 4);
+                }
+                catch (Exception ex)
+                {
+                    exception = ex;
+                }
+
+                Assert.IsNotNull(exception);
+                Assert.IsAssignableFrom<PipeRpcInvocationException>(exception);
+                Assert.AreEqual("Not supported test", exception.Message);
+            }
+        }
+
         private static ComplexObject CreateComplexObject()
         {
             return new ComplexObject

@@ -116,42 +116,77 @@ namespace PipeRpc
 
         public void On(string @event, Action action)
         {
-            On(@event, new Type[0], args => action());
+            On(@event, new Type[0], false, args => { action(); return null; });
         }
 
         public void On<T>(string @event, Action<T> action)
         {
-            On(@event, new[] { typeof(T) }, args => action((T)args[0]));
+            On(@event, new[] { typeof(T) }, false, args => { action((T)args[0]); return null; });
         }
 
         public void On<T1, T2>(string @event, Action<T1, T2> action)
         {
-            On(@event, new[] { typeof(T1), typeof(T2) }, args => action((T1)args[0], (T2)args[1]));
+            On(@event, new[] { typeof(T1), typeof(T2) }, false, args => { action((T1)args[0], (T2)args[1]); return null; });
         }
 
         public void On<T1, T2, T3>(string @event, Action<T1, T2, T3> action)
         {
-            On(@event, new[] { typeof(T1), typeof(T2), typeof(T3) }, args => action((T1)args[0], (T2)args[1], (T3)args[2]));
+            On(@event, new[] { typeof(T1), typeof(T2), typeof(T3) }, false, args => { action((T1)args[0], (T2)args[1], (T3)args[2]); return null; });
         }
 
         public void On<T1, T2, T3, T4>(string @event, Action<T1, T2, T3, T4> action)
         {
-            On(@event, new[] { typeof(T1), typeof(T2), typeof(T3), typeof(T4) }, args => action((T1)args[0], (T2)args[1], (T3)args[2], (T4)args[3]));
+            On(@event, new[] { typeof(T1), typeof(T2), typeof(T3), typeof(T4) }, false, args => { action((T1)args[0], (T2)args[1], (T3)args[2], (T4)args[3]); return null; });
         }
 
         public void On<T1, T2, T3, T4, T5>(string @event, Action<T1, T2, T3, T4, T5> action)
         {
-            On(@event, new[] { typeof(T1), typeof(T2), typeof(T3), typeof(T4), typeof(T5) }, args => action((T1)args[0], (T2)args[1], (T3)args[2], (T4)args[3], (T5)args[4]));
+            On(@event, new[] { typeof(T1), typeof(T2), typeof(T3), typeof(T4), typeof(T5) }, false, args => { action((T1)args[0], (T2)args[1], (T3)args[2], (T4)args[3], (T5)args[4]); return null; });
         }
 
         public void On<T1, T2, T3, T4, T5, T6>(string @event, Action<T1, T2, T3, T4, T5, T6> action)
         {
-            On(@event, new[] { typeof(T1), typeof(T2), typeof(T3), typeof(T4), typeof(T5), typeof(T6) }, args => action((T1)args[0], (T2)args[1], (T3)args[2], (T4)args[3], (T5)args[4], (T6)args[5]));
+            On(@event, new[] { typeof(T1), typeof(T2), typeof(T3), typeof(T4), typeof(T5), typeof(T6) }, false, args => { action((T1)args[0], (T2)args[1], (T3)args[2], (T4)args[3], (T5)args[4], (T6)args[5]); return null; });
         }
 
-        private void On(string @event, Type[] types, Action<object[]> action)
+        public void On<TResult>(string @event, Func<TResult> action)
         {
-            _events.Add(@event, new Event(types, action));
+            On(@event, new Type[0], true, args => action());
+        }
+
+        public void On<T, TResult>(string @event, Func<T, TResult> action)
+        {
+            On(@event, new[] { typeof(T) }, true, args => action((T)args[0]));
+        }
+
+        public void On<T1, T2, TResult>(string @event, Func<T1, T2, TResult> action)
+        {
+            On(@event, new[] { typeof(T1), typeof(T2) }, true, args => action((T1)args[0], (T2)args[1]));
+        }
+
+        public void On<T1, T2, T3, TResult>(string @event, Func<T1, T2, T3, TResult> action)
+        {
+            On(@event, new[] { typeof(T1), typeof(T2), typeof(T3) }, true, args => action((T1)args[0], (T2)args[1], (T3)args[2]));
+        }
+
+        public void On<T1, T2, T3, T4, TResult>(string @event, Func<T1, T2, T3, T4, TResult> action)
+        {
+            On(@event, new[] { typeof(T1), typeof(T2), typeof(T3), typeof(T4) }, true, args => action((T1)args[0], (T2)args[1], (T3)args[2], (T4)args[3]));
+        }
+
+        public void On<T1, T2, T3, T4, T5, TResult>(string @event, Func<T1, T2, T3, T4, T5, TResult> action)
+        {
+            On(@event, new[] { typeof(T1), typeof(T2), typeof(T3), typeof(T4), typeof(T5) }, true, args => action((T1)args[0], (T2)args[1], (T3)args[2], (T4)args[3], (T5)args[4]));
+        }
+
+        public void On<T1, T2, T3, T4, T5, T6, TResult>(string @event, Func<T1, T2, T3, T4, T5, T6, TResult> action)
+        {
+            On(@event, new[] { typeof(T1), typeof(T2), typeof(T3), typeof(T4), typeof(T5), typeof(T6) }, true, args => action((T1)args[0], (T2)args[1], (T3)args[2], (T4)args[3], (T5)args[4], (T6)args[5]));
+        }
+
+        private void On(string @event, Type[] types, bool hasResult, Func<object[], object> action)
+        {
+            _events.Add(@event, new Event(types, action, hasResult));
         }
 
         private void SendInvoke(string method, object[] args)
@@ -201,7 +236,10 @@ namespace PipeRpc
                     case "quit":
                         throw ReadQuit();
                     case "post":
-                        ReadPost();
+                        ReadInvoke(false);
+                        break;
+                    case "invoke":
+                        ReadInvoke(true);
                         break;
                     default:
                         throw new PipeRpcException($"Unexpected message type '{type}'");
@@ -211,11 +249,18 @@ namespace PipeRpc
             throw new PipeRpcException("Unexpected end of stream");
         }
 
-        private void ReadPost()
+        private void ReadInvoke(bool expectResult)
         {
             string name = _reader.ReadAsString();
             if (!_events.TryGetValue(name, out var @event))
                 throw new PipeRpcException($"Unexpected event '{name}'");
+
+            if (@event.HasResult != expectResult)
+            {
+                if (@event.HasResult)
+                    throw new PipeRpcException($"Event '{name}' has a result but none was expected");
+                throw new PipeRpcException($"Event '{name}' does not have a result but one was expected");
+            }
 
             var parameterTypes = @event.ParameterTypes;
             object[] arguments = new object[parameterTypes.Length];
@@ -230,7 +275,23 @@ namespace PipeRpc
 
             JsonUtil.ReadEndArray(_reader);
 
-            @event.Action(arguments);
+            if (expectResult)
+            {
+                try
+                {
+                    object result = @event.Action(arguments);
+
+                    MessageUtils.SendResult(_writer, result, true, _serializer);
+                }
+                catch (Exception ex)
+                {
+                    MessageUtils.SendException(_writer, ex);
+                }
+            }
+            else
+            {
+                @event.Action(arguments);
+            }
         }
 
         private PipeRpcException ReadQuit()
@@ -246,8 +307,7 @@ namespace PipeRpc
 
             if (returnType != null)
             {
-                JsonUtil.ReadForType(_reader, returnType);
-                result = _serializer.Deserialize(_reader, returnType);
+                result = MessageUtils.ParseResult(_reader, returnType, _serializer);
             }
 
             JsonUtil.ReadEndArray(_reader);
@@ -257,13 +317,11 @@ namespace PipeRpc
 
         private PipeRpcException ReadException()
         {
-            string message = _reader.ReadAsString();
-            string type = _reader.ReadAsString();
-            string stackTrace = _reader.ReadAsString();
+            var exception = MessageUtils.ParseException(_reader);
 
             JsonUtil.ReadEndArray(_reader);
 
-            throw new PipeRpcInvocationException(message, type, stackTrace);
+            throw exception;
         }
 
         private void RegisterCancellation(CancellationToken token)
@@ -339,12 +397,14 @@ namespace PipeRpc
         private class Event
         {
             public Type[] ParameterTypes { get; }
-            public Action<object[]> Action { get; }
+            public Func<object[], object> Action { get; }
+            public bool HasResult { get; }
 
-            public Event(Type[] parameterTypes, Action<object[]> action)
+            public Event(Type[] parameterTypes, Func<object[], object> action, bool hasResult)
             {
                 ParameterTypes = parameterTypes;
                 Action = action;
+                HasResult = hasResult;
             }
         }
     }

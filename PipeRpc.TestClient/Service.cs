@@ -49,6 +49,11 @@ namespace PipeRpc.TestClient
             return dateTimeOffset;
         }
 
+        public int InvokeBackWithInt(int a, int b, IOperationContext context)
+        {
+            return context.Invoke<int>("Multiply", a + 1, b + 2);
+        }
+
         public void KillClient()
         {
             Environment.Exit(0);

@@ -22,6 +22,8 @@ namespace PipeRpc
         private readonly JsonSerializer _serializer;
         private bool _started;
         private CancellationTokenSource _tokenSource;
+        private PendingInvoke _invoke;
+        private readonly object _syncRoot = new object();
         private bool _disposed;
 
         public PipeRpcClient(PipeRpcHandle handle, object service)
@@ -79,7 +81,7 @@ namespace PipeRpc
                         }
                         catch (Exception ex)
                         {
-                            SendException(ex);
+                            MessageUtils.SendException(_writer, ex);
                         }
                     }
                 }
@@ -100,44 +102,51 @@ namespace PipeRpc
                 result = message.Method.Method.Invoke(_service, message.Arguments);
             }
 
-            SendResult(result, message.Method.ReturnType != typeof(void));
+            bool haveResult = message.Method.ReturnType != typeof(void);
+
+            MessageUtils.SendResult(_writer, result, haveResult, _serializer);
         }
 
-        private void SendResult(object result, bool haveResult)
+        private object SendInvoke(string name, Type resultType, object[] args)
         {
-            _writer.WriteStartArray();
-            _writer.WriteValue("result");
-            if (haveResult)
-                _serializer.Serialize(_writer, result);
-            _writer.WriteEndArray();
-            _writer.Flush();
-        }
+            PendingInvoke invoke = null;
 
-        private void SendException(Exception exception)
-        {
-            if (exception is TargetInvocationException invocationException && invocationException.InnerException != null)
-                exception = invocationException.InnerException;
-
-            _writer.WriteStartArray();
-            _writer.WriteValue("exception");
-            _writer.WriteValue(exception.Message);
-            _writer.WriteValue(exception.GetType().FullName);
-            _writer.WriteValue(exception.StackTrace);
-            _writer.WriteEndArray();
-            _writer.Flush();
-        }
-
-        private void SendPost(string name, object[] args)
-        {
-            _writer.WriteStartArray();
-            _writer.WriteValue("post");
-            _writer.WriteValue(name);
-            foreach (var arg in args)
+            try
             {
-                _serializer.Serialize(_writer, arg);
+                if (resultType != null)
+                {
+                    invoke = new PendingInvoke(resultType, _serializer);
+
+                    lock (_syncRoot)
+                    {
+                        _invoke = invoke;
+                    }
+                }
+
+                _writer.WriteStartArray();
+                _writer.WriteValue(resultType != null ? "invoke" : "post");
+                _writer.WriteValue(name);
+                foreach (var arg in args)
+                {
+                    _serializer.Serialize(_writer, arg);
+                }
+                _writer.WriteEndArray();
+                _writer.Flush();
+
+                return invoke?.GetResult();
             }
-            _writer.WriteEndArray();
-            _writer.Flush();
+            finally
+            {
+                if (invoke != null)
+                {
+                    lock (_syncRoot)
+                    {
+                        _invoke = null;
+                    }
+
+                    invoke.Dispose();
+                }
+            }
         }
 
         private void ReadProc(BlockingCollection<IEvent> queue)
@@ -160,6 +169,10 @@ namespace PipeRpc
                             break;
                         case "invoke":
                             queue.Add(ParseMessage());
+                            break;
+                        case "result":
+                        case "exception":
+                            _invoke.ParseResponse(_reader, type);
                             break;
                         default:
                             throw new PipeRpcException($"Unexpected message type '{type}'");
@@ -298,12 +311,110 @@ namespace PipeRpc
                 if (_disposed)
                     throw new ObjectDisposedException(nameof(OperationContext));
 
-                _client.SendPost(@event, args);
+                _client.SendInvoke(@event, null, args);
+            }
+
+            public T Invoke<T>(string @event, params object[] args)
+            {
+                if (_disposed)
+                    throw new ObjectDisposedException(nameof(OperationContext));
+
+                return (T)_client.SendInvoke(@event, typeof(T), args);
             }
 
             public void Dispose()
             {
                 _disposed = true;
+            }
+        }
+
+        private class PendingInvoke : IDisposable
+        {
+            private readonly Type _resultType;
+            private readonly JsonSerializer _serializer;
+            private ManualResetEventSlim _event = new ManualResetEventSlim();
+            private object _result;
+            private Exception _exception;
+            private readonly object _syncRoot = new object();
+            private bool _disposed;
+
+            public PendingInvoke(Type resultType, JsonSerializer serializer)
+            {
+                _resultType = resultType;
+                _serializer = serializer;
+            }
+
+            public void ParseResponse(JsonReader reader, string type)
+            {
+                try
+                {
+                    switch (type)
+                    {
+                        case "result":
+                            ParseResult(reader);
+                            break;
+                        case "exception":
+                            ParseException(reader);
+                            break;
+                        default:
+                            throw new PipeRpcException($"Unexpected message type '{type}'");
+                    }
+                }
+                finally
+                {
+                    _event.Set();
+                }
+            }
+
+            private void ParseResult(JsonReader reader)
+            {
+                object result = MessageUtils.ParseResult(reader, _resultType, _serializer);
+
+                JsonUtil.ReadEndArray(reader);
+
+                lock (_syncRoot)
+                {
+                    _result = result;
+                }
+            }
+
+            private void ParseException(JsonReader reader)
+            {
+                var exception = MessageUtils.ParseException(reader);
+
+                JsonUtil.ReadEndArray(reader);
+
+                lock (_syncRoot)
+                {
+                    _exception = exception;
+                }
+            }
+
+            public object GetResult()
+            {
+                _event.Wait();
+
+                lock (_syncRoot)
+                {
+                    if (_exception != null)
+                        throw _exception;
+
+                    return _result;
+                }
+            }
+
+            public void Dispose()
+            {
+                if (!_disposed)
+                {
+                    if (_event != null)
+                    {
+                        _event.Dispose();
+                        _event = null;
+                    }
+
+                    _disposed = true;
+                }
             }
         }
     }

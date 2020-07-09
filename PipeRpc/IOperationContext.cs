@@ -9,5 +9,6 @@ namespace PipeRpc
     public interface IOperationContext
     {
         void Post(string @event, params object[] args);
+        T Invoke<T>(string @event, params object[] args);
     }
 }
