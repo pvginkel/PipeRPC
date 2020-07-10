@@ -15,6 +15,20 @@ namespace PipeRpc
 {
     public class PipeRpcClient : IDisposable
     {
+        private static readonly object _staticSyncRoot = new object();
+        private static IOperationContext _currentOperationContext;
+
+        public static IOperationContext CurrentOperationContext
+        {
+            get
+            {
+                lock (_staticSyncRoot)
+                {
+                    return _currentOperationContext;
+                }
+            }
+        }
+
         private readonly ServiceDescription _serviceDescription;
         private readonly object _service;
         private JsonTextReader _reader;
@@ -99,7 +113,22 @@ namespace PipeRpc
 
             using (message.OperationContext)
             {
-                result = message.Method.Method.Invoke(_service, message.Arguments);
+                lock (_staticSyncRoot)
+                {
+                    _currentOperationContext = message.OperationContext;
+                }
+
+                try
+                {
+                    result = message.Method.Method.Invoke(_service, message.Arguments);
+                }
+                finally
+                {
+                    lock (_staticSyncRoot)
+                    {
+                        _currentOperationContext = null;
+                    }
+                }
             }
 
             bool haveResult = message.Method.ReturnType != typeof(void);
@@ -198,7 +227,7 @@ namespace PipeRpc
 
             int cancellationTokenIndex = -1;
             var arguments = new object[serviceMethod.ParameterTypes.Count];
-            OperationContext operationContext = null;
+            var operationContext = new OperationContext(this);
 
             for (int i = 0; i < serviceMethod.ParameterTypes.Count; i++)
             {
@@ -213,8 +242,6 @@ namespace PipeRpc
                 }
                 else if (parameterType == typeof(IOperationContext))
                 {
-                    if (operationContext == null)
-                        operationContext = new OperationContext(this);
                     arguments[i] = operationContext;
                 }
                 else
