@@ -4,7 +4,11 @@
     <OutputType>Exe</OutputType>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="System.ValueTuple" Version="4.5.0" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\PipeRpc\PipeRpc.csproj" />
+    <ProjectReference Include="..\SampleClient2\SampleClient2.csproj" />
     <ProjectReference Include="..\SampleClient\SampleClient.csproj" />
   </ItemGroup>
 </Project>
