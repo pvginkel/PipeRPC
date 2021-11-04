@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net461</TargetFramework>
-    <Version>0.1.7</Version>
+    <Version>0.1.8</Version>
     <Authors>Pieter van Ginkel</Authors>
     <Description>Simple, fast, JSON based RPC protocol for communicating with external processes using anonymous named pipes.</Description>
     <Copyright>Pieter van Ginkel © 2018</Copyright>
