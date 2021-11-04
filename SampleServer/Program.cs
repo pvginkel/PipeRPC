@@ -71,6 +71,12 @@ namespace SampleServer
 
                 int result3 = server.Invoke<int>("StartToOtherServer", 42);
 
+                // Invoke a method that returns void, calling a callback that returns void.
+
+                server.On("VoidInvoke", () => Console.WriteLine("In void callback"));
+
+                server.Invoke("InvokeVoidInvoke");
+
                 Console.WriteLine($"Method returned {result3}");
 
                 // Invoke with nested cancellation token.

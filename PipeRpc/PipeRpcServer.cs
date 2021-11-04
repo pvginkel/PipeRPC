@@ -236,10 +236,10 @@ namespace PipeRpc
                     case "quit":
                         throw ReadQuit();
                     case "post":
-                        ReadInvoke(false);
+                        ReadInvoke(false, MethodType.Post);
                         break;
                     case "invoke":
-                        ReadInvoke(true);
+                        ReadInvoke(returnType != null, MethodType.Invoke);
                         break;
                     default:
                         throw new PipeRpcException($"Unexpected message type '{type}'");
@@ -249,7 +249,7 @@ namespace PipeRpc
             throw new PipeRpcException("Unexpected end of stream");
         }
 
-        private void ReadInvoke(bool expectResult)
+        private void ReadInvoke(bool expectResult, MethodType type)
         {
             string name = _reader.ReadAsString();
             if (!_events.TryGetValue(name, out var @event))
@@ -275,13 +275,13 @@ namespace PipeRpc
 
             JsonUtil.ReadEndArray(_reader);
 
-            if (expectResult)
+            if (type == MethodType.Invoke)
             {
                 try
                 {
                     object result = @event.Action(arguments);
 
-                    MessageUtils.SendResult(_writer, result, true, _serializer);
+                    MessageUtils.SendResult(_writer, result, expectResult, _serializer);
                 }
                 catch (Exception ex)
                 {

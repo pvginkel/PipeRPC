@@ -58,5 +58,10 @@ namespace SampleClient
             cancellationToken.Register(() => Console.WriteLine("Cancelled in client 1"));
             return PipeRpcClient.CurrentOperationContext.Invoke<bool>("WaitForCancelOnOtherServer", wait, cancellationToken);
         }
+
+        public void InvokeVoidInvoke(IOperationContext context)
+        {
+            context.Invoke("VoidInvoke");
+        }
     }
 }

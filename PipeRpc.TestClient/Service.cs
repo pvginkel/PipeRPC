@@ -54,6 +54,11 @@ namespace PipeRpc.TestClient
             return context.Invoke<int>("Multiply", a + 1, b + 2);
         }
 
+        public void InvokeBackWithVoid(int a, int b, IOperationContext context)
+        {
+            context.Invoke("VoidInvoke", a + 1, b + 2);
+        }
+
         public void KillClient()
         {
             Environment.Exit(0);

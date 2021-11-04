@@ -152,6 +152,18 @@ namespace PipeRpc.Test
         }
 
         [Test]
+        public void InvokeBackVoid()
+        {
+            using (var server = CreateServer())
+            {
+                int result = 0;
+                server.On<int, int>("VoidInvoke", (a, b) => result = a * b);
+                server.Invoke("InvokeBackWithVoid", 3, 4);
+                Assert.AreEqual((3 + 1) * (4 + 2), result);
+            }
+        }
+
+        [Test]
         public void InvokeBackThrowsException()
         {
             using (var server = CreateServer())

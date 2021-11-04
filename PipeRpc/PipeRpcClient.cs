@@ -136,13 +136,13 @@ namespace PipeRpc
             MessageUtils.SendResult(_writer, result, haveResult, _serializer);
         }
 
-        private object SendInvoke(string name, Type resultType, object[] args)
+        private object SendInvoke(string name, Type resultType, MethodType type, object[] args)
         {
             PendingInvoke invoke = null;
 
             try
             {
-                if (resultType != null)
+                if (type == MethodType.Invoke)
                 {
                     invoke = new PendingInvoke(resultType, _serializer);
 
@@ -153,7 +153,7 @@ namespace PipeRpc
                 }
 
                 _writer.WriteStartArray();
-                _writer.WriteValue(resultType != null ? "invoke" : "post");
+                _writer.WriteValue(type == MethodType.Invoke ? "invoke" : "post");
                 _writer.WriteValue(name);
                 foreach (var arg in args)
                 {
@@ -338,7 +338,15 @@ namespace PipeRpc
                 if (_disposed)
                     throw new ObjectDisposedException(nameof(OperationContext));
 
-                _client.SendInvoke(@event, null, args);
+                _client.SendInvoke(@event, null, MethodType.Post, args);
+            }
+
+            public void Invoke(string @event, params object[] args)
+            {
+                if (_disposed)
+                    throw new ObjectDisposedException(nameof(OperationContext));
+
+                _client.SendInvoke(@event, null, MethodType.Invoke, args);
             }
 
             public T Invoke<T>(string @event, params object[] args)
@@ -346,7 +354,7 @@ namespace PipeRpc
                 if (_disposed)
                     throw new ObjectDisposedException(nameof(OperationContext));
 
-                return (T)_client.SendInvoke(@event, typeof(T), args);
+                return (T)_client.SendInvoke(@event, typeof(T), MethodType.Invoke, args);
             }
 
             public void Dispose()
@@ -395,7 +403,10 @@ namespace PipeRpc
 
             private void ParseResult(JsonReader reader)
             {
-                object result = MessageUtils.ParseResult(reader, _resultType, _serializer);
+                object result = null;
+
+                if (_resultType != null)
+                    result = MessageUtils.ParseResult(reader, _resultType, _serializer);
 
                 JsonUtil.ReadEndArray(reader);
 
